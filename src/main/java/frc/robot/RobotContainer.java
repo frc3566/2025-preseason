@@ -23,14 +23,8 @@ import edu.wpi.first.wpilibj2.command.button.JoystickButton;
 import edu.wpi.first.wpilibj2.command.button.POVButton;
 
 import frc.robot.autos.*;
-import frc.robot.commands.intake.IntakeAndHold;
-import frc.robot.commands.intake.IntakeTimed;
 import frc.robot.commands.swerve.TeleopSwerve;
 import frc.robot.commands.swerve.pid.*;
-import frc.robot.commands.vision.AlignWithAprilTag;
-import frc.robot.commands.shooter.PrimeAndShoot;
-import frc.robot.commands.shooter.PrimeWhileThenShoot;
-import frc.robot.commands.shooter.TeleopShoot;
 import frc.robot.subsystems.*;
 
 /**
@@ -71,6 +65,8 @@ public class RobotContainer {
                 () -> true // always field relative
             )
         );
+
+        configureButtonBindings();
     }
 
     /**
