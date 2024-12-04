@@ -55,47 +55,12 @@ public class RobotContainer {
     /* Driver Buttons */
     private final JoystickButton kX = new JoystickButton(driver, XboxController.Button.kX.value);
     private final JoystickButton kY = new JoystickButton(driver, XboxController.Button.kY.value);
-    private final JoystickButton kA = new JoystickButton(driver, XboxController.Button.kA.value);
-    private final JoystickButton kB = new JoystickButton(driver, XboxController.Button.kB.value);
-
-    private final JoystickButton rightBumper = new JoystickButton(driver, XboxController.Button.kRightBumper.value);
-    private final JoystickButton leftBumper = new JoystickButton(driver, XboxController.Button.kLeftBumper.value);
-    
-    private final POVButton DPadUp = new POVButton(driver, 0);
-    private final POVButton DPadDown = new POVButton(driver, 180);
-    private final POVButton DPadLeft = new POVButton(driver, 270);
-    private final POVButton DPadRight = new POVButton(driver, 90);
-
-    private final POVButton DPadUp2 = new POVButton(driver2, 0);
-    private final POVButton DPadDown2 = new POVButton(driver2, 180);
-
-    private final JoystickButton kX2 = new JoystickButton(driver2, XboxController.Button.kX.value);
-    private final JoystickButton kY2 = new JoystickButton(driver2, XboxController.Button.kY.value);
-    private final JoystickButton kA2 = new JoystickButton(driver2, XboxController.Button.kA.value);
-    private final JoystickButton kB2 = new JoystickButton(driver2, XboxController.Button.kB.value);
-
-
 
     /* Subsystems */
     private final Swerve s_Swerve = new Swerve();
-    private final Shooter s_Shooter = new Shooter();
-    private final Intake s_Intake = new Intake();
-    private final Climber s_Climber = new Climber();
-    private final Vision s_Vision;
-
-    /* Auto Command */
-    private final Command pathPlannerAuto;
-    private Command alignCommand = new Spin(s_Swerve, () -> new Pose2d(0, 0, new Rotation2d(90)));
-    private boolean alignCommandIsRunning = false;
 
     /** The container for the robot. Contains subsystems, IO devices, and commands. */
     public RobotContainer() {
-        CommandScheduler.getInstance().onCommandInitialize(command -> System.out.println("Command initialized: " + command.getName()));
-        CommandScheduler.getInstance().onCommandInterrupt(command -> System.out.println("Command interrupted: " + command.getName()));
-        CommandScheduler.getInstance().onCommandFinish(command -> System.out.println("Command finished: " + command.getName()));
-
-        s_Vision = new Vision();
-        s_Vision.resetPose();
         
         s_Swerve.setDefaultCommand(
             new TeleopSwerve(
@@ -106,26 +71,6 @@ public class RobotContainer {
                 () -> true // always field relative
             )
         );
-
-        s_Shooter.setDefaultCommand(
-            new TeleopShoot(
-                s_Shooter, 
-                () -> driver.getRawAxis(leftTriggerID),
-                () -> driver.getRawAxis(rightTriggerID)
-            )
-        );
-
-        /* By pausing init for a second before setting module offsets, we avoid a bug with inaccurate encoder readouts.
-         * See https://github.com/Team364/BaseFalconSwerve/issues/8 for more info.
-         */
-        Timer.delay(4);
-        s_Swerve.resetModulesToAbsolute();
-
-        configureButtonBindings();
-        DriverStation.silenceJoystickConnectionWarning(true);
-
-        configurePathPlanner();
-        pathPlannerAuto = new PathPlannerAuto("Preseason Test");
     }
 
     /**
@@ -138,86 +83,12 @@ public class RobotContainer {
         /* Driver Buttons */
         kX.onTrue(new InstantCommand(() -> s_Swerve.zeroGyro()));
         kY.onTrue(new InstantCommand(() -> s_Swerve.resetModulesToAbsolute()));
-        
-        kB.whileTrue(new InstantCommand(() -> {
-            if (!alignCommandIsRunning && s_Vision.getAprilTag().isPresent()) {
-                s_Swerve.off();
-                AlignWithAprilTag alignWithAprilTag = new AlignWithAprilTag(s_Swerve, s_Vision);
-                alignCommand = alignWithAprilTag
-                    .alongWith(new PrimeWhileThenShoot(s_Shooter, s_Intake, 1, () -> !alignWithAprilTag.isRunning()))
-                    .finallyDo(() -> alignCommandIsRunning = false)
-                    .withName("AlignWhilePriming");
-                
-                alignCommand.schedule();
-                alignCommandIsRunning = true;
-            }
-        }).withName("InitiateAlignWithAprilTag").repeatedly());
-
-        kA.onTrue(new InstantCommand(() -> {
-            if (alignCommand != null) {
-                alignCommand.cancel();
-                alignCommandIsRunning = false;
-            }
-            alignCommand = null;
-        }).withName("Cancel Align Command"));
-
-        rightBumper.onTrue(new IntakeAndHold(s_Intake, s_Shooter, () -> rightBumper.getAsBoolean()));
-        leftBumper.onTrue(new InstantCommand(() -> s_Intake.eject()));
-        leftBumper.onFalse(new InstantCommand(() -> s_Intake.stop()));
-
-        DPadUp.onTrue(new InstantCommand(() -> s_Climber.setPower(1.0)));
-        DPadUp.onFalse(new InstantCommand(() -> s_Climber.setPower(0)));
-        DPadDown.onTrue(new InstantCommand(() -> s_Climber.setPower(-0.8)));
-        DPadDown.onFalse(new InstantCommand(() -> s_Climber.setPower(0)));
-
-        DPadLeft.onTrue(new PrimeAndShoot(s_Shooter, s_Intake, 1.0));
-
-        DPadUp2.onTrue(new InstantCommand(() -> s_Climber.setLeftPower(0.4)));
-        DPadUp2.onFalse(new InstantCommand(() -> s_Climber.setLeftPower(0)));
-        DPadDown2.onTrue(new InstantCommand(() -> s_Climber.setLeftPower(-0.4)));
-        DPadDown2.onFalse(new InstantCommand(() -> s_Climber.setLeftPower(0)));
-
-        kY2.onTrue(new InstantCommand(() -> s_Climber.setRightPower(0.4)));
-        kY2.onFalse(new InstantCommand(() -> s_Climber.setRightPower(0)));
-        kA2.onTrue(new InstantCommand(() -> s_Climber.setRightPower(-0.4)));
-        kA2.onFalse(new InstantCommand(() -> s_Climber.setRightPower(0)));
     }
 
     /** 
      * Use this method to configure PathPlanner settings 
      * and expose commands to PathPlanner.
      */
-    private void configurePathPlanner() {
-        var translationPID = new PIDConstants(4.0, 0.0, 0.0);
-        var rotationPID = new PIDConstants(6.0, 0.0, 0.0);
-        var centerToFurthestModule = Constants.Swerve.wheelBase * Math.sqrt(2) / 2;
-
-        var config = new HolonomicPathFollowerConfig(
-            translationPID,
-            rotationPID,
-            Constants.AutoConstants.kMaxSpeedMetersPerSecond, 
-            centerToFurthestModule, 
-            new ReplanningConfig() 
-        );
-
-        /* Paths should be flipped if we are on Red Alliance side */
-        BooleanSupplier shouldFlipPath = () -> { return DriverStation.getAlliance().orElse(null) == DriverStation.Alliance.Red; };
-
-        AutoBuilder.configureHolonomic(
-            s_Swerve::getPose, 
-            s_Swerve::resetOdometry, 
-            s_Swerve::getRobotRelativeSpeeds, 
-            s_Swerve::driveRobotRelative, 
-            config,
-            shouldFlipPath,
-            s_Swerve
-        );
-
-        /* Register PathPlanner commands here */
-        NamedCommands.registerCommand("PrimeAndShoot", new PrimeAndShoot(s_Shooter, s_Intake, 1.0));
-        NamedCommands.registerCommand("Intake", new IntakeAndHold(s_Intake, s_Shooter, () -> true));
-        NamedCommands.registerCommand("ReverseIntake", new IntakeTimed(s_Intake, () -> -0.1, 0.5));
-    }
 
     /**
      * Use this to pass the autonomous command to the main {@link Robot} class.
@@ -225,6 +96,6 @@ public class RobotContainer {
      * @return the command to run in autonomous
      */
     public Command getAutonomousCommand() {
-        return pathPlannerAuto;
+        return null;
     }
 }
